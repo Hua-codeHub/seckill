@@ -49,7 +49,7 @@ mvn archetype:generate -DgroupId=my.test.seckill -DartifactId=seckill -Darchetyp
 
 MySQL VS NoSQL
 
-事物机制依然是目前最可靠的落地方案
+事务机制依然是目前最可靠的落地方案
 
 ## 秒杀系统的难点
 
@@ -57,10 +57,10 @@ MySQL VS NoSQL
 
 ![](./images/4.png)
 
-对于MySQL，难点在于 **事物 + 行级锁**
-- 事物
+对于MySQL，难点在于 **事务 + 行级锁**
+- 事务
 
-![事物](./images/5.png)
+![事务](./images/5.png)
 
 问题存在于 update 减库存
 
@@ -141,7 +141,7 @@ ALTER TABLE seckill
 
 - MyBatis特点
 
-![MyBatis](./images/8.png)
+![MyBatis](./images/9.png)
 
 - SQL写在哪？
     1. **XML提供SQL**
@@ -190,3 +190,60 @@ org.mybatis.spring.MyBatisSystemException: nested exception is org.apache.ibatis
 
 dto数据传输层  关注的是web和service的数据传递
 entity 对业务的封装
+
+
+- Spring IOC 功能理解
+![Spring IOC](./images/10.png)
+
+- 为什么用IOC
+    - 对象创建统一管理
+    - 规范的生命周期管理
+    - 灵活的依赖注入
+    - 一致的获取对象
+
+- Spring IOC 注入方式和场景
+
+|XML|注解|Java配置类|
+|:--:|:--:|:--:|
+|1、Bean实现类来自第三方类库，如：`DataSource`等<br/>2、需要命名空间配置，如：context、aop、mvc等|项目中自身开发使用的类，可直接在代码中使用注解，如:`@Service`、`@Controller`等|需要通过代码控制对象常见逻辑的场景，如：自定义修改依赖类库|
+
+@Component 
+@Service 
+@Controller
+
+@Autowired @Resource
+
+
+## Spring的声明式事务
+
+- 什么是声明式事务
+![事务](./images/11.png)
+
+- 声明式事务使用方式
+    - `ProxyFactoryBean + XML` ----> 早期使用方式
+    - `tx:advice + aop命名空间` ----> 一次配置，永久生效
+    - `注解@Transactional`    ----> 注解控制  （*推荐使用*）
+
+- 事务方法嵌套
+声明式事务独有的概念
+
+传播行为----> 默认：propagation_required
+
+- 什么时候回滚事务
+
+抛出运行期异常(RuntimeException)时回滚
+
+小心不当的try-catch
+
+- 配置Spring声明式事务
+```
+<!-- 配置基于注解的声明式事务
+    默认使用注解来管理事务
+-->
+<tx:annotation-driven transaction-manager="transactionManager"/>
+```
+
+- 使用注解控制事务方法的有点
+1. 开发团队达成一致约定，明确标注事务方法的编程风格
+2. 保证事务方法的执行时间尽可能短，不要穿插其他网络操作，RPC/HTTP请求（或者剥离到事务方法外）
+3. 不是所有的方法都需要事务，如：只有一条修改操作，只读操作不需要事务控制
