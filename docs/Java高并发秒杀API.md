@@ -247,3 +247,95 @@ entity 对业务的封装
 1. 开发团队达成一致约定，明确标注事务方法的编程风格
 2. 保证事务方法的执行时间尽可能短，不要穿插其他网络操作，RPC/HTTP请求（或者剥离到事务方法外）
 3. 不是所有的方法都需要事务，如：只有一条修改操作，只读操作不需要事务控制
+
+## 秒杀系统WEB层
+
+- 前端交互设计
+- RESTful
+- Spring MVC
+- bootstrap+jquery
+
+### 前端交互设计
+![前端页面流程](./images/12.png)
+
+
+![详情页流程逻辑](./images/13.png)
+
+### RESTful
+
+> 一种优雅的URI表述方式
+
+> 资源的状态和状态转移
+
+- RESTful规范
+    - GET --> 查询操作
+    - POST --> 添加/修改操作
+    - PUT --> 修改操作
+    - DELETE --> 删除操作
+- URL设计
+    > /模块/资源/{标识}/集合1/...
+
+### Spring MVC
+
+![围绕Handler开发](./images/14.png)
+
+- Spring MVC运行流程
+![Spring MVC运行流程](./images/SpringMVC.png)
+
+- 注解映射技巧
+
+`@RequestMapping`注解：
+1. 支持标准的URL
+2. Ant风格URL(即?和*和**等字符)
+3. 带{xxx}占位符的RUL
+
+- 请求方法细节处理
+    1. 请求参数绑定
+    2. 请求方法限制
+    3. 请求转发和重定向
+    4. 数据模型赋值
+    5. 返回json数据
+    6. cookie访问
+
+示例：
+```Java
+//参数绑定
+@RequestMapping(value="/{seckillId}/detail",method=RequestMethod.GET)
+public String detail(@PathVariable("seckillId")Long seckillId,Model model){
+    if(seckillId == null){
+        return "redirect:/seckill/list";
+    }
+    Seckill seckill = seckillService.getById(seckillId);
+    if(seckill == null){
+        return "forward:/seckill/list";
+    }
+    model.addAttribute("seckill",seckill);
+    return "detail";
+}
+```
+返回JSON数据：
+```Java
+@RequestMapping(value="/{seckillId}/{md5}/execution",method=RequestMethod.GET,
+produces = {"application/json;charset=UTF-8"})
+@ResponseBody
+public SeckillResult<Exposer> exportSeckillURL(@PathVariable("seckillId") long id){
+    SeckillResult<Exposer> result;
+   //....
+    return result;
+}
+```
+
+Cookie访问：`@CookieValue`
+```Java
+@RequestMapping(value="/{seckillId}/{md5}/execution",method=RequestMethod.GET)
+public SeckillResult<Exposer> execute(@PathVariable("seckillId") long seckillId,
+    @PathVariable("md5") String md5,
+    @CookieValue(value="killPhone",required = false) Long phone)
+{
+    SeckillResult<Exposer> result;
+   //....
+    return result;
+}
+```
+
+## 配置Spring MVC 框架
