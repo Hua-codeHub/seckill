@@ -7,7 +7,6 @@ import my.test.seckill.entity.Seckill;
 import my.test.seckill.enums.SeckillStatEnum;
 import my.test.seckill.exception.RepeatKillException;
 import my.test.seckill.exception.SeckillCloseException;
-import my.test.seckill.exception.SeckillException;
 import my.test.seckill.service.SeckillService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,7 +22,7 @@ import java.util.List;
  * Created by HUA on 2017/10/26.
  */
 @Controller
-@RequestMapping("/seckill")// url:/模块/资源/{标识}/具体
+@RequestMapping("/seckill")
 public class SeckillController {
 
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -31,7 +30,7 @@ public class SeckillController {
     @Autowired
     private SeckillService seckillService;
 
-    @RequestMapping(name = "/list", method = RequestMethod.GET)
+    @RequestMapping(value = "/list", method = RequestMethod.GET)
     public String list(Model model) {
         //获取列表页
         List<Seckill> list = seckillService.getSeckillList();
@@ -60,12 +59,12 @@ public class SeckillController {
             method = RequestMethod.POST,
             produces = {"application/json;charset=UTF-8"})
     @ResponseBody
-    public SeckillResult<Exposer> exposer(Long seckillId) {
+    public SeckillResult<Exposer> exposer(@PathVariable("seckillId") Long seckillId) {
         SeckillResult<Exposer> result;
 
         try {
             Exposer exposer = seckillService.exportSeckillUrl(seckillId);
-            return =new SeckillResult<Exposer>(true, exposer);
+            return new SeckillResult<Exposer>(true, exposer);
 
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
@@ -93,19 +92,19 @@ public class SeckillController {
             return new SeckillResult<SeckillExecution>(true, execution);
         } catch (RepeatKillException e) {
             SeckillExecution execution = new SeckillExecution(seckillId, SeckillStatEnum.REPEAT_KILL);
-            return new SeckillResult<SeckillExecution>(false, execution);
+            return new SeckillResult<SeckillExecution>(true, execution);
         } catch (SeckillCloseException e) {
             SeckillExecution execution = new SeckillExecution(seckillId, SeckillStatEnum.END);
-            return new SeckillResult<SeckillExecution>(false, execution);
+            return new SeckillResult<SeckillExecution>(true, execution);
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
             SeckillExecution execution = new SeckillExecution(seckillId, SeckillStatEnum.INNER_ERROR);
-            return new SeckillResult<SeckillExecution>(false, execution);
-            //TODO
+            return new SeckillResult<SeckillExecution>(true, execution);
         }
     }
 
-    @RequestMapping(value = "/time/now", method = RequestMethod.GET)
+    @RequestMapping(value = "/time/now", method = RequestMethod.GET, produces = {"application/json;charset=UTF-8"})
+    @ResponseBody
     public SeckillResult<Long> time() {
         Date now = new Date();
         return new SeckillResult(true, now.getTime());
