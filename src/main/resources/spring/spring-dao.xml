@@ -50,5 +50,10 @@ http://www.springframework.org/schema/beans/spring-beans.xsd http://www.springfr
         <property name="basePackage" value="my.test.seckill.dao"/>
     </bean>
 
+    <!-- RedisDao -->
+    <bean id="redisDao" class="my.test.seckill.dao.cache.RedisDao">
+        <constructor-arg index="0" value="localhost"/>
+        <constructor-arg index="1" value="6379"/>
+    </bean>
 
 </beans>

@@ -2,6 +2,7 @@ package my.test.seckill.service.impl;
 
 import my.test.seckill.dao.SeckillDao;
 import my.test.seckill.dao.SuccessKilledDao;
+import my.test.seckill.dao.cache.RedisDao;
 import my.test.seckill.dto.Exposer;
 import my.test.seckill.dto.SeckillExecution;
 import my.test.seckill.entity.Seckill;
@@ -34,6 +35,9 @@ public class SeckillServiceImpl implements SeckillService {
     @Autowired
     private SuccessKilledDao successKilledDao;
 
+    @Autowired
+    private RedisDao redisDao;
+
     //md5盐值字符串，用于混淆md5
     private final String slat = "302rowaejfljljO(U*(@YI$KHJFI&)^&*OYHKSDFHNkldh";
 
@@ -50,10 +54,20 @@ public class SeckillServiceImpl implements SeckillService {
 
     @Override
     public Exposer exportSeckillUrl(long seckillId) {
-        Seckill seckill = seckillDao.queryById(seckillId);
+        //优化点：缓存优化--超时的基础上维护一致性
+        //1、访问redis
+        Seckill seckill = redisDao.getSeckill(seckillId);
         if (seckill == null) {
-            return new Exposer(false, seckillId);
+            //2、访问数据库
+            seckill = seckillDao.queryById(seckillId);
+            if (seckill == null) {
+                return new Exposer(false, seckillId);
+            } else {
+                //3、放入Redis
+                redisDao.putSeckill(seckill);
+            }
         }
+
         Date startTime = seckill.getStartTime();
         Date endTime = seckill.getEndTime();
         //系统时间

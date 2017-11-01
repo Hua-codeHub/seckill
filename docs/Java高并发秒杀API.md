@@ -339,3 +339,90 @@ public SeckillResult<Exposer> execute(@PathVariable("seckillId") long seckillId,
 ```
 
 ## 配置Spring MVC 框架
+
+
+## 高并发优化
+
+- 可能会发生高并发的点(红色)
+
+![可能会发生高并发的点](./images/15.png)
+
+- 使用CDN加速访问
+
+静态资源部署到CDN节点
+![静态资源部署到CDN节点](./images/16.png)
+
+- CDN的理解
+    - CDN(Content Delivery Network,内容分发网络)---加速用户获取数据的
+    - 部署在离用户最近的网络节点上
+    - 命中CDN不需要访问后端服务器
+
+- 秒杀地址接口分析
+    1. 无法使用CDN缓存
+    2. 适合服务器断缓存：redis等
+    3. 一致性维护成本低
+
+- 秒杀地址接口优化
+
+![静态资源部署到CDN节点](./images/17.png)
+
+- 秒杀操作优化分析
+    1. 无法使用CDN缓冲
+    2. 后端缓存困难：库存问题
+    3. 一行数据竞争：热点商品
+- 优化方案：
+![静态资源部署到CDN节点](./images/18.png)
+
+该方案痛点（成本分析）：
+1. 运维成本和稳定性：NoSQL、MQ等
+2. 开发成本：数据库一致性，回滚方案
+3. 幂等性难保证：重复秒杀问题
+4. 不适合新手架构
+
+- **为什么不用MySQL解决**
+    - Java控制事务行为分析
+
+![事务](./images/19.png)
+
+- 瓶颈分析
+
+![事务](./images/20.png)  
+
+- 优化分析
+
+行级锁在commit之后释放 --->> 优化方向：减少行级锁持有时间
+
+- 延迟分析
+    - 网络问题很关键
+    - update后JVM-GC(50ms左右) max(20qps)
+
+如何判断Update更新库存成功？
+两个条件：
+1. update自身没有报错
+2. 客户端确认update影响记录数
+
+优化思路：
+- 把客户端逻辑放到MySQL服务端，避免网络延迟和GC影响
+
+如何放到MySQL服务端
+两种解决方案：
+1. 定制SQL方案：update /* + [auto_commit] */,需要修改MySQL源码。
+2. 使用存储过程：整个事务在MySQL端完成。
+
+![优化总结](./images/21.png)
+
+
+## redis后端接口优化
+
+- 引入Java访问Redis的客户端:Jedis
+
+```xml
+ <!--redis 客户端:Jedis-->
+<dependency>
+    <groupId>redis.clients</groupId>
+    <artifactId>jedis</artifactId>
+    <version>2.7.3</version>
+</dependency>
+```
+
+
