@@ -425,4 +425,163 @@ public SeckillResult<Exposer> execute(@PathVariable("seckillId") long seckillId,
 </dependency>
 ```
 
+## 秒杀操作的并发优化
 
+![回顾事务执行](./images/22.png)
+
+```Java
+public SeckillExecution executeSeckill(long seckillId, long userPhone, String md5) throws SeckillException, RepeatKillException, SeckillCloseException {
+    if (md5 == null || !md5.equals(getMD5(seckillId))) {
+        throw new SeckillException("seckill data rewrite");
+    }
+
+    //执行秒杀逻辑：减库存 + 记录购物行为
+    Date nowTime = new Date();
+    try {
+        //减库存
+        int updateCount = seckillDao.reduceNumber(seckillId, nowTime);
+        if (updateCount <= 0) {
+            //没有更新到记录
+            throw new SeckillCloseException("seckill is closed");
+        } else {
+            //记录购买行为
+            int insertCount = successKilledDao.insertSuccessKilled(seckillId, userPhone);
+            if (insertCount <= 0) {
+                throw new RepeatKillException("seckill repeated");
+            } else {
+                //秒杀成功
+                SuccessKilled successKilled = successKilledDao.queryByIdWithSeckill(seckillId, userPhone);
+                return new SeckillExecution(seckillId, SeckillStatEnum.SUCCESS, successKilled);
+            }
+        }
+    } catch (SeckillCloseException e1) {
+        throw e1;
+    } catch (RepeatKillException e2) {
+        throw e2;
+    } catch (Exception e) {
+        logger.error(e.getMessage(), e);
+        //所有编译期异常，转化为运行期异常
+        throw new SeckillException("seckill inner error:" + e.getMessage());
+    }
+}
+
+```
+
+- 简单优化
+
+![简单优化](./images/23.png)
+
+```java
+public SeckillExecution executeSeckill(long seckillId, long userPhone, String md5) throws SeckillException, RepeatKillException, SeckillCloseException {
+    if (md5 == null || !md5.equals(getMD5(seckillId))) {
+        throw new SeckillException("seckill data rewrite");
+    }
+
+    //执行秒杀逻辑：减库存 + 记录购物行为
+    Date nowTime = new Date();
+    try {
+        //记录购买行为
+        int insertCount = successKilledDao.insertSuccessKilled(seckillId, userPhone);
+        if (insertCount <= 0) {
+            throw new RepeatKillException("seckill repeated");
+        } else {
+            //减库存,热点商品竞争
+            int updateCount = seckillDao.reduceNumber(seckillId, nowTime);
+            if (updateCount <= 0) {
+                //没有更新到记录，秒杀结束，rollback
+                throw new SeckillCloseException("seckill is closed");
+            } else {
+                //秒杀成功 commit
+                SuccessKilled successKilled = successKilledDao.queryByIdWithSeckill(seckillId, userPhone);
+                return new SeckillExecution(seckillId, SeckillStatEnum.SUCCESS, successKilled);
+            }
+        }
+    } catch (SeckillCloseException e1) {
+        throw e1;
+    } catch (RepeatKillException e2) {
+        throw e2;
+    } catch (Exception e) {
+        logger.error(e.getMessage(), e);
+        //所有编译期异常，转化为运行期异常
+        throw new SeckillException("seckill inner error:" + e.getMessage());
+    }
+}
+```
+
+- 深度优化
+
+> 事务SQL在MySQL端执行（存储过程），减少网络延迟和GC的影响
+
+```sql
+-- 秒杀执行存储过程
+
+DELIMITER $$ -- console ; 转换为 $$
+
+-- 定义存储过程
+-- 参数： in 输入参数; out 输出参数
+-- row_count();返回上一条修改类型SQL（delete/insert/update）的影响行数
+-- row_count: 0:未修改数据； >0:表示修改的行数； <0:sql错误/未执行修改sql
+CREATE PROCEDURE `seckill`.`execute_seckill`
+  (IN v_seckill_id bigint, IN v_phone bigint,
+  IN v_kill_time TIMESTAMP ,OUT r_result int)
+BEGIN
+  DECLARE insert_count int DEFAULT 0;
+  START TRANSACTION;
+  INSERT IGNORE INTO success_killed
+    (seckill_id,user_phone,create_time)
+  VALUES (v_seckill_id,v_phone,v_kill_time);
+  SELECT ROW_COUNT() INTO insert_count;
+  IF(insert_count = 0) THEN
+    ROLLBACK;
+    SET r_result = -1;
+  ELSEIF(insert_count < 0) THEN
+    ROLLBACK;
+    SET r_result = -2;
+  ELSE
+    UPDATE seckill
+    SET number = number -1
+    WHERE seckill_id = v_seckill_id
+    AND end_time > v_kill_time
+    AND start_time < v_kill_time
+    AND number > 0;
+    SELECT ROW_COUNT() INTO insert_count;
+    IF(insert_count = 0) THEN
+      ROLLBACK;
+      SET r_result = 0;
+    ELSEIF (insert_count < 0) THEN
+      ROLLBACK ;
+      SET r_result = -2;
+    ELSE
+      COMMIT;
+      SET r_result = 1;
+    END IF;
+  END IF;
+END;
+$$
+-- 存储过程定义结束
+
+DELIMITER ;
+
+SET @r_result = -3;
+-- 执行存储过程
+call execute_seckill(1001,13566889874,now(),@r_result);
+-- 获取结果
+SELECT  @r_result;
+```
+- 存储过程
+    - 1：存储过程优化：事务行级锁持有的时间
+    - 2：不要过度依赖存储过程
+    - 3：简单的逻辑可以应用存储过程
+    - 4: QPS:一个秒杀单 6000/qps
+
+
+## 部署
+
+- CDN
+- WebServer:Nginx+Jetty/Tomcat
+- Redis
+- MySQL
+
+## 系统部署架构
+
+![系统部署架构](./images/24.png)

@@ -71,6 +71,8 @@ configuration/**
 # tcc_coverage
 coverage.ec
 
+#vs code
+.vscode
 
 
 config.client.*

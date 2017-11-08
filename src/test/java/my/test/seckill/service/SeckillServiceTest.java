@@ -64,10 +64,10 @@ public class SeckillServiceTest {
 
     //测试代码完整逻辑，注意可重复执行
     @Test
-    public void testSeckillLogic() throws Exception{
+    public void testSeckillLogic() throws Exception {
         long id = 1001;
         Exposer exposer = seckillService.exportSeckillUrl(id);
-        if (exposer.isExposed()){
+        if (exposer.isExposed()) {
             logger.info("exposer={}", exposer);
             long phone = 18598355279L;
             String md5 = exposer.getMd5();
@@ -79,9 +79,21 @@ public class SeckillServiceTest {
             } catch (SeckillCloseException e) {
                 logger.info(e.getMessage());
             }
-        }else {
+        } else {
             //秒杀未开启
             logger.warn("exposer={}", exposer);
+        }
+    }
+
+    @Test
+    public void executeSeckillProcedure() {
+        long seckillId = 1001;
+        long phone = 18419186267L;
+        Exposer exposer = seckillService.exportSeckillUrl(seckillId);
+        if (exposer.isExposed()) {
+            String md5 = exposer.getMd5();
+            SeckillExecution execution = seckillService.executeSeckillProcedure(seckillId, phone, md5);
+            logger.info(execution.getStateInfo());
         }
     }
 
