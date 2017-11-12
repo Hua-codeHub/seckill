@@ -91,3 +91,5 @@ hsf.configuration/
 
 #hsf test
 *.instance
+
+out
