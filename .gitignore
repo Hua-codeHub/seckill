@@ -1,9 +1,14 @@
+# Gradle
+build
+.gradle
+
 testdata/
 # Java gitignore #
 .class
 .log
 
 # Package Files #
+
 *.war
 *.ear
 
@@ -17,7 +22,7 @@ target/**
 
 # intelliJ.gitignore #
 .idea
-*.imlSS
+*.iml
 *.ipr
 *.iws
 
@@ -71,8 +76,6 @@ configuration/**
 # tcc_coverage
 coverage.ec
 
-#vs code
-.vscode
 
 
 config.client.*
@@ -81,3 +84,10 @@ temp/
 *.pid
 *.orig
 
+hsf.configuration/
+
+# code coverage report
+*.ec
+
+#hsf test
+*.instance
